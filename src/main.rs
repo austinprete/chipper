@@ -1,14 +1,13 @@
+use std::fs::File;
 use std::io;
 use std::io::prelude::*;
-use std::fs::File;
+
+use cpu::CPU;
+use rom::ROM;
 
 mod cpu;
 
-use cpu::CPU;
-
 mod rom;
-
-use rom::ROM;
 
 fn main() -> io::Result<()> {
     let mut cpu = CPU::new();
@@ -17,12 +16,14 @@ fn main() -> io::Result<()> {
 
     cpu.load_rom(rom);
 
-    for i in 256..256 + (rom.size / 2) {
-        println!("{:?}", i);
-        let opcode = ((cpu.memory[i * 2] as u16) << 8) | cpu.memory[(i * 2) + 1] as u16;
-        // println!("{:#06x?}", opcode);
-        cpu.execute_op(opcode);
-    }
+    // for i in 256..256 + (rom.size / 2) {
+    //     println!("{:?}", i);
+    //     // let opcode = ((cpu.memory[i * 2] as u16) << 8) | cpu.memory[(i * 2) + 1] as u16;
+    //     // println!("{:#06x?}", opcode);
+    //     // cpu.execute_op(opcode);
+    // }
+
+    cpu.run();
 
 
     Ok(())
