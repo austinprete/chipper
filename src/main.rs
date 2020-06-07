@@ -23,6 +23,7 @@ fn main() -> io::Result<()> {
     //     // cpu.execute_op(opcode);
     // }
 
+    cpu.enable_debug();
     cpu.run();
 
 
