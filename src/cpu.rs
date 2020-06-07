@@ -60,6 +60,12 @@ impl CPU {
         }
     }
 
+    pub fn print_debug(&mut self, message: String) {
+        if self.debug_mode {
+            println!("{}", message);
+        }
+    }
+
     pub fn execute_op(&mut self) {
         let opcode = ((self.memory[self.pc as usize] as u16) << 8) | self.memory[(self.pc + 1) as usize] as u16;
 
@@ -71,9 +77,7 @@ impl CPU {
         let nnn = opcode & 0x0FFF;
         let nn = (opcode & 0x00FF) as u8;
 
-        if self.debug_mode {
-            println!("-------------------\nPC: {:#06X?}", self.pc);
-        }
+        self.print_debug(format!("-------------------\nPC: {:#06X?}", self.pc));
 
         // self.disassemble_op(opcode);
 
@@ -83,27 +87,27 @@ impl CPU {
 
         match (op1, op2, op3, op4) {
             (0x0, 0x0, 0xE, 0x0) => {
-                description = format!("Clear screen");
+                self.print_debug(format!("Clear screen"));
 
                 panic! {"UNIMPLEMENTED OP"}
             }
             (0x0, 0x0, 0xE, 0xE) => {
-                description = format!("Return from a subroutine");
+                self.print_debug(format!("Return from a subroutine"));
 
                 self.sp -= 1;
                 self.pc = self.stack[self.sp];
             }
             // This instruction only applies to original CHIP-8 hardware
             (0x0, _, _, _) => {
-                description = format!("Execute machine language subroutine at address {:#05X?}", nnn);
+                self.print_debug(format!("Execute machine language subroutine at address {:#05X?}", nnn));
             }
             (0x1, _, _, _) => {
-                description = format!("Jump to address {}", nnn);
+                self.print_debug(format!("Jump to address {}", nnn));
 
                 self.pc = nnn;
             }
             (0x2, _, _, _) => {
-                description = format!("Execute subroutine at address {:#05X?}", nnn);
+                self.print_debug(format!("Execute subroutine at address {:#05X?}", nnn));
 
                 self.stack[self.sp] = self.pc;
                 self.sp += 1;
@@ -111,94 +115,94 @@ impl CPU {
                 self.pc = nnn;
             }
             (0x3, x, _, _) => {
-                description = format!("Skip the following instruction if V{} == {}", x, nn);
+                self.print_debug(format!("Skip the following instruction if V{} == {}", x, nn));
 
                 if self.v[x] == nn {
                     self.pc += 2;
                 }
             }
             (0x4, x, _, _) => {
-                description = format!("Skip the following instruction if V{} != {}", x, nn);
+                self.print_debug(format!("Skip the following instruction if V{} != {}", x, nn));
 
                 panic! {"UNIMPLEMENTED OP"}
             }
             (0x5, x, y, 0) => {
-                description = format!("Skip the following instruction if V{} == V{}", x, y);
+                self.print_debug(format!("Skip the following instruction if V{} == V{}", x, y));
 
                 panic! {"UNIMPLEMENTED OP"}
             }
             (0x6, x, _, _) => {
-                description = format!("Store {} in register V{}", nn, x);
+                self.print_debug(format!("Store {} in register V{}", nn, x));
 
                 self.v[x] = nn;
             }
             (0x7, x, _, _) => {
-                description = format!("Add {} to register V{}", nn, x);
+                self.print_debug(format!("Add {} to register V{}", nn, x));
 
                 self.v[x] += nn;
             }
             (0x8, x, y, 0x0) => {
-                description = format!("Store V{} in V{}", y, x);
+                self.print_debug(format!("Store V{} in V{}", y, x));
 
                 panic! {"UNIMPLEMENTED OP"}
             }
             (0x8, x, y, 0x1) => {
-                description = format!("Set V{} to V{} | V{}", x, x, y);
+                self.print_debug(format!("Set V{} to V{} | V{}", x, x, y));
 
                 panic! {"UNIMPLEMENTED OP"}
             }
             (0x8, x, y, 0x2) => {
-                description = format!("Set V{} to V{} & V{}", x, x, y);
+                self.print_debug(format!("Set V{} to V{} & V{}", x, x, y));
 
                 panic! {"UNIMPLEMENTED OP"}
             }
             (0x8, x, y, 0x3) => {
-                description = format!("Set V{} to V{} ^ V{}", x, x, y);
+                self.print_debug(format!("Set V{} to V{} ^ V{}", x, x, y));
 
                 panic! {"UNIMPLEMENTED OP"}
             }
             (0x8, x, y, 0x4) => {
-                description = format!("Add the value of register V{} to register V{}\n\tSet VF to 01 if a carry occurs\n\tSet VF to 00 if a carry does not occur", y, x);
+                self.print_debug(format!("Add the value of register V{} to register V{}\n\tSet VF to 01 if a carry occurs\n\tSet VF to 00 if a carry does not occur", y, x));
 
                 panic! {"UNIMPLEMENTED OP"}
             }
             (0x8, x, y, 0x5) => {
-                description = format!("Subtract the value of register V{} from register V{}\n\tSet VF to 00 if a borrow occurs\n\tSet VF to 01 if a borrow does not occur", y, x);
+                self.print_debug(format!("Subtract the value of register V{} from register V{}\n\tSet VF to 00 if a borrow occurs\n\tSet VF to 01 if a borrow does not occur", y, x));
 
                 panic! {"UNIMPLEMENTED OP"}
             }
             (0x8, x, y, 0x6) => {
-                description = format!("Store the value of register V{} shifted right one bit in register V{}\n\tSet register VF to the least significant bit prior to the shift", y, x);
+                self.print_debug(format!("Store the value of register V{} shifted right one bit in register V{}\n\tSet register VF to the least significant bit prior to the shift", y, x));
 
                 panic! {"UNIMPLEMENTED OP"}
             }
             (0x8, x, y, 0x7) => {
-                description = format!("Set register V{} to the value of V{} minus V{}\n\tSet VF to 00 if a borrow occurs\n\tSet VF to 01 if a borrow does not occur", x, y, x);
+                self.print_debug(format!("Set register V{} to the value of V{} minus V{}\n\tSet VF to 00 if a borrow occurs\n\tSet VF to 01 if a borrow does not occur", x, y, x));
 
                 panic! {"UNIMPLEMENTED OP"}
             }
             (0x8, x, y, 0xE) => {
-                description = format!("Store the value of register V{} shifted left one bit in register V{}\n\tSet register VF to the most significant bit prior to the shift", y, x);
+                self.print_debug(format!("Store the value of register V{} shifted left one bit in register V{}\n\tSet register VF to the most significant bit prior to the shift", y, x));
 
                 panic! {"UNIMPLEMENTED OP"}
             }
             (0x9, x, y, 0x0) => {
-                description = format!("Skip the following instruction if V{} != V{}", x, y);
+                self.print_debug(format!("Skip the following instruction if V{} != V{}", x, y));
 
                 panic! {"UNIMPLEMENTED OP"}
             }
             (0xA, _, _, _) => {
-                description = format!("Store memory address {:#05X?} to register I", nnn);
+                self.print_debug(format!("Store memory address {:#05X?} to register I", nnn));
 
                 self.i = nnn;
             }
             (0xB, _, _, _) => {
-                description = format!("Jump to address {} + V0", nnn);
+                self.print_debug(format!("Jump to address {} + V0", nnn));
 
                 panic! {"UNIMPLEMENTED OP"}
             }
             (0xC, x, _, _) => {
-                description = format!("Set V{} = random byte AND {:#04X?}", x, nn);
+                self.print_debug(format!("Set V{} = random byte AND {:#04X?}", x, nn));
 
                 // TODO: better random implementation here
                 let mut rng = rand::thread_rng();
@@ -206,27 +210,27 @@ impl CPU {
                 self.v[x] = rnd & nn;
             }
             (0xD, x, y, n) => {
-                description = format!("Draw sprite {:?} at x={} y={}", n, x, y);
+                self.print_debug(format!("Draw sprite {:?} at x={} y={}", n, x, y));
 
                 // TODO: implement drawing
             }
             (0xF, x, 0x0, 0x7) => {
-                description = format!("Set V{} = delay timer", x);
+                self.print_debug(format!("Set V{} = delay timer", x));
 
                 self.v[x] = self.delay_timer;
             }
             (0xF, x, 0x1, 0x5) => {
-                description = format!("Set delay timer = V{}", x);
+                self.print_debug(format!("Set delay timer = V{}", x));
 
                 self.delay_timer = self.v[x];
             }
             (0xF, x, 0x2, 0x9) => {
-                description = format!("Set I = location of sprite for digit V{}.", x);
+                self.print_debug(format!("Set I = location of sprite for digit V{}.", x));
 
                 self.i = self.v[x] as u16 * 5;
             }
             (0xF, x, 0x3, 0x3) => {
-                description = format!("Store BCD representation of V{} in memory locations {:#06X?}, {:#06X?}, and {:#06X?}.", x, self.i, self.i + 1, self.i + 2);
+                self.print_debug(format!("Store BCD representation of V{} in memory locations {:#06X?}, {:#06X?}, and {:#06X?}.", x, self.i, self.i + 1, self.i + 2));
 
                 let mut num = self.v[x];
 
@@ -241,17 +245,13 @@ impl CPU {
                 self.memory[start_address] = ones;
             }
             (0xF, x, 0x6, 0x5) => {
-                description = format!("Read registers V0 through V{} from memory starting at location {:#06X?}.", x, self.i);
+                self.print_debug(format!("Read registers V0 through V{} from memory starting at location {:#06X?}.", x, self.i));
 
                 for reg in 0..x {
                     self.v[reg] = self.memory[(self.i as usize) + reg];
                 }
             }
             (_, _, _, _) => panic!("UNRECOGNIZED OP: {:#06X?}", opcode)
-        }
-
-        if self.debug_mode {
-            println!("{}", description);
         }
     }
 
