@@ -2,7 +2,8 @@ use std::thread::sleep;
 use std::time;
 use std::time::Duration;
 
-use rand::{Rng, random};
+use rand::{random, Rng};
+use rand::rngs::ThreadRng;
 
 use crate::display::Display;
 use crate::keyboard::Keyboard;
@@ -21,6 +22,8 @@ pub struct CPU {
     debug_mode: bool,
     keyboard: Keyboard,
     display: Display,
+    rng: ThreadRng,
+    output_buffer: Vec<u32>,
 }
 
 fn from_u8_rgb(r: u8, g: u8, b: u8) -> u32 {
@@ -30,6 +33,8 @@ fn from_u8_rgb(r: u8, g: u8, b: u8) -> u32 {
 
 impl CPU {
     pub fn new(keyboard: Keyboard, display: Display) -> CPU {
+        let height = (display.get_height() / SCALE_FACTOR);
+        let width = (display.get_width() / SCALE_FACTOR);
         CPU {
             v: [0; 16],
             i: 0,
@@ -42,29 +47,132 @@ impl CPU {
             debug_mode: false,
             keyboard,
             display,
+            output_buffer: vec![0; width * height],
+            rng: rand::thread_rng(),
         }
     }
     //
     pub fn load_rom(&mut self, rom: ROM) {
-        self.memory[512..].clone_from_slice(&rom.data);
-        println!("{:?}", self.memory[512])
+        self.memory[0x200..].clone_from_slice(&rom.data);
+        println!("{:?}", self.memory[0x200])
     }
 
     pub fn enable_debug(&mut self) {
         self.debug_mode = true;
     }
 
+    pub fn load_fontset(&mut self) {
+        // 0
+        self.memory[0] = 0xF0;
+        self.memory[1] = 0x90;
+        self.memory[2] = 0x90;
+        self.memory[3] = 0x90;
+        self.memory[4] = 0xF0;
+        // 1
+        self.memory[5] = 0x20;
+        self.memory[6] = 0x60;
+        self.memory[7] = 0x20;
+        self.memory[8] = 0x20;
+        self.memory[9] = 0x70;
+        // 2
+        self.memory[10] = 0xF0;
+        self.memory[11] = 0x10;
+        self.memory[12] = 0xF0;
+        self.memory[13] = 0x80;
+        self.memory[14] = 0xF0;
+        // 3
+        self.memory[15] = 0xF0;
+        self.memory[16] = 0x10;
+        self.memory[17] = 0xF0;
+        self.memory[18] = 0x10;
+        self.memory[19] = 0xF0;
+        // 4
+        self.memory[20] = 0x90;
+        self.memory[21] = 0x90;
+        self.memory[22] = 0xF0;
+        self.memory[23] = 0x10;
+        self.memory[24] = 0x10;
+        // 5
+        self.memory[25] = 0xF0;
+        self.memory[26] = 0x80;
+        self.memory[27] = 0xF0;
+        self.memory[28] = 0x10;
+        self.memory[29] = 0xF0;
+        // 6
+        self.memory[30] = 0xF0;
+        self.memory[31] = 0x80;
+        self.memory[32] = 0xF0;
+        self.memory[33] = 0x90;
+        self.memory[34] = 0xF0;
+        // 7
+        self.memory[35] = 0xF0;
+        self.memory[36] = 0x10;
+        self.memory[37] = 0x20;
+        self.memory[38] = 0x40;
+        self.memory[39] = 0x40;
+        // 8
+        self.memory[40] = 0xF0;
+        self.memory[41] = 0x90;
+        self.memory[42] = 0xF0;
+        self.memory[43] = 0x90;
+        self.memory[44] = 0xF0;
+        // 9
+        self.memory[45] = 0xF0;
+        self.memory[46] = 0x90;
+        self.memory[47] = 0xF0;
+        self.memory[48] = 0x10;
+        self.memory[49] = 0xF0;
+        // A
+        self.memory[50] = 0xF0;
+        self.memory[51] = 0x90;
+        self.memory[52] = 0xF0;
+        self.memory[53] = 0x90;
+        self.memory[54] = 0x90;
+        // B
+        self.memory[55] = 0xE0;
+        self.memory[56] = 0x90;
+        self.memory[57] = 0xE0;
+        self.memory[58] = 0x90;
+        self.memory[59] = 0xE0;
+        // C
+        self.memory[60] = 0xF0;
+        self.memory[61] = 0x80;
+        self.memory[62] = 0x80;
+        self.memory[63] = 0x80;
+        self.memory[64] = 0xF0;
+        // D
+        self.memory[65] = 0xE0;
+        self.memory[66] = 0x90;
+        self.memory[67] = 0x90;
+        self.memory[68] = 0x90;
+        self.memory[69] = 0xE0;
+        // E
+        self.memory[70] = 0xF0;
+        self.memory[71] = 0x80;
+        self.memory[72] = 0xF0;
+        self.memory[73] = 0x80;
+        self.memory[74] = 0xF0;
+        // F
+        self.memory[75] = 0xF0;
+        self.memory[76] = 0x80;
+        self.memory[77] = 0xF0;
+        self.memory[78] = 0x80;
+        self.memory[79] = 0x80;
+    }
+
     pub fn run(&mut self) {
         const CYCLES_TO_RUN: u16 = 10_000;
         let mut cycles_ran = 0;
+
+        self.load_fontset();
 
         loop {
             if self.pc >= 4096 {
                 break;
             }
+            self.keyboard.get_input(self.display.window.clone());
             self.execute_op();
-            // sleep(time::Duration::from_millis(16));
-            // self.keyboard.get_input();
+            sleep(time::Duration::from_millis(16));
 
             if self.delay_timer > 0 {
                 self.delay_timer -= 1;
@@ -86,7 +194,11 @@ impl CPU {
     }
 
     pub fn execute_op(&mut self) {
+        self.print_debug(format!("-------------------\nPC: {:#06X?}", self.pc));
         let opcode = ((self.memory[self.pc as usize] as u16) << 8) | self.memory[(self.pc + 1) as usize] as u16;
+        self.print_debug(format!("OPCODE: {:#06X?}", opcode));
+
+        self.pc += 2;
 
         let op1 = ((opcode & 0xF000) >> 12) as u8;
         let op2 = ((opcode & 0x0F00) >> 8) as usize;
@@ -96,17 +208,16 @@ impl CPU {
         let nnn = opcode & 0x0FFF;
         let nn = (opcode & 0x00FF) as u8;
 
-        self.print_debug(format!("-------------------\nPC: {:#06X?}", self.pc));
-
         // self.disassemble_op(opcode);
-
-        self.pc += 2;
 
         match (op1, op2, op3, op4) {
             (0x0, 0x0, 0xE, 0x0) => {
                 self.print_debug(format!("Clear screen"));
 
-                panic! {"UNIMPLEMENTED OP"}
+                for i in 0..self.output_buffer.len() {
+                    self.output_buffer[i] = 0;
+                }
+                self.display.update_buffer(&self.output_buffer);
             }
             (0x0, 0x0, 0xE, 0xE) => {
                 self.print_debug(format!("Return from a subroutine"));
@@ -160,7 +271,7 @@ impl CPU {
             (0x7, x, _, _) => {
                 self.print_debug(format!("Add {} to register V{}", nn, x));
 
-                self.v[x] += nn;
+                self.v[x] = (self.v[x] as u8).wrapping_add(nn);
             }
             (0x8, x, y, 0x0) => {
                 self.print_debug(format!("Store V{} in V{}", y, x));
@@ -170,40 +281,40 @@ impl CPU {
             (0x8, x, y, 0x1) => {
                 self.print_debug(format!("Set V{} to V{} | V{}", x, x, y));
 
-                self.v[x] = self.v[x] | self.v[y as usize];
+                self.v[x] |= self.v[y as usize];
             }
             (0x8, x, y, 0x2) => {
                 self.print_debug(format!("Set V{} to V{} & V{}", x, x, y));
 
-                self.v[x] = self.v[x] & self.v[y as usize];
+                self.v[x] &= self.v[y as usize];
             }
             (0x8, x, y, 0x3) => {
                 self.print_debug(format!("Set V{} to V{} ^ V{}", x, x, y));
 
-                self.v[x] = self.v[x] ^ self.v[y as usize];
+                self.v[x] ^= self.v[y as usize];
             }
             (0x8, x, y, 0x4) => {
                 self.print_debug(format!("Add the value of register V{} to register V{}\n\tSet VF to 01 if a carry occurs\n\tSet VF to 00 if a carry does not occur", y, x));
 
                 let new_val: u16 = self.v[x] as u16 + self.v[y as usize] as u16;
-                self.v[0xF] = if new_val / (u8::MAX as u16) == 1 {
+                self.v[0xF] = if new_val >= (u8::MAX as u16) {
                     1
                 } else {
                     0
                 };
 
-                self.v[x] = (new_val % (u8::MAX as u16)) as u8;
+                self.v[x] = (new_val & 0x0F) as u8;
             }
             (0x8, x, y, 0x5) => {
                 self.print_debug(format!("Subtract the value of register V{} from register V{}\n\tSet VF to 00 if a borrow occurs\n\tSet VF to 01 if a borrow does not occur", y, x));
 
-                self.v[0xF] = if self.v[y as usize] > self.v[x] {
+                self.v[0xF] = if self.v[x] > self.v[y as usize] {
                     1
                 } else {
                     0
                 };
 
-                self.v[x] -= self.v[y as usize];
+                self.v[x] = (self.v[x] as u8).wrapping_sub(self.v[y as usize]);
             }
             (0x8, x, _, 0x6) => {
                 self.print_debug(format!("Shift the value of register V{} right one bit\n\tSet register VF to the least significant bit prior to the shift", x));
@@ -214,13 +325,13 @@ impl CPU {
             (0x8, x, y, 0x7) => {
                 self.print_debug(format!("Set register V{} to the value of V{} minus V{}\n\tSet VF to 00 if a borrow occurs\n\tSet VF to 01 if a borrow does not occur", x, y, x));
 
-                self.v[0xF] = if self.v[x] > self.v[y as usize] {
+                self.v[0xF] = if self.v[y as usize] > self.v[x] {
                     1
                 } else {
                     0
                 };
 
-                self.v[x] = self.v[y as usize] - self.v[x];
+                self.v[x] = (self.v[y as usize] as u8).wrapping_sub(self.v[x]);
             }
             (0x8, x, _, 0xE) => {
                 self.print_debug(format!("Shift the value of register V{} left one bit\n\tSet register VF to the most significant bit prior to the shift", x));
@@ -248,25 +359,53 @@ impl CPU {
             (0xC, x, _, _) => {
                 self.print_debug(format!("Set V{} = random byte AND {:#04X?}", x, nn));
 
-                // TODO: better random implementation here
-                let mut rng = rand::thread_rng();
-                let rnd = rng.gen_range(0, 256) as u8;
+                let rnd = self.rng.gen::<u8>();
                 self.v[x] = rnd & nn;
             }
             (0xD, x, y, n) => {
-                self.print_debug(format!("Draw sprite {:?} at x={} y={}", n, x, y));
+                let y_coord = self.v[y as usize];
+                let x_coord = self.v[x] as usize;
+                self.print_debug(format!("Draw sprite {:?} at x={} y={}", n, x_coord, y_coord));
 
-                // TODO: implement actual drawing
-                let mut buffer: Vec<u32> = vec![0; (self.display.get_width() / SCALE_FACTOR) * (self.display.get_height() / 10)];
-                let mut rng = rand::thread_rng();
-                for i in buffer.iter_mut() {
-                    *i = from_u8_rgb(rng.gen::<u8>(), rng.gen::<u8>(), rng.gen::<u8>()); // write something more funny here!
+                let start_pos = (64 * y_coord) + x_coord;
+                let mut unset = false;
+
+                for i in 0usize..(n as usize) {
+                    let mut line_data = self.memory[self.i as usize + i];
+
+                    for j in 0..8 {
+                        let pixel_on = 0x8 == (0x8 & line_data);
+                        line_data = line_data << 1;
+
+                        let current_pos = start_pos + (64 * i) + j;
+                        if pixel_on {
+                            if self.output_buffer[current_pos] == 0 {
+                                // self.output_buffer[current_pos] = from_u8_rgb(self.rng.gen::<u8>(), self.rng.gen::<u8>(), self.rng.gen::<u8>());
+                                self.output_buffer[current_pos] = from_u8_rgb(200, 200, 100);
+                            } else {
+                                self.output_buffer[current_pos] = 0;
+                                unset = true;
+                            }
+                        }
+                    }
                 }
 
-                self.display.update_buffer(&buffer);
+                self.v[0xF] = if unset {
+                    1
+                } else {
+                    0
+                };
+
+                self.display.update_buffer(&self.output_buffer);
             }
             (0xE, x, 0xA, 0x1) => {
-                self.print_debug(format!("Skips the next instruction if key {} isn't pressed.", self.v[x]))
+                self.print_debug(format!("Skips the next instruction if key {} isn't pressed.", self.v[x]));
+
+                if !self.keyboard.is_key_pressed(self.v[x]) {
+                    self.pc += 2
+                } else {
+                    println!("Key {} is pressed", self.v[x])
+                }
             }
             (0xF, x, 0x0, 0x7) => {
                 self.print_debug(format!("Set V{} = delay timer", x));
@@ -286,7 +425,25 @@ impl CPU {
             (0xF, x, 0x2, 0x9) => {
                 self.print_debug(format!("Set I = location of sprite for digit V{}.", x));
 
-                self.i = self.v[x] as u16 * 5;
+                self.i = match self.v[x] {
+                    0 => 0x00,
+                    1 => 0x05,
+                    2 => 0x0A,
+                    3 => 0x0F,
+                    4 => 0x14,
+                    5 => 0x19,
+                    6 => 0x1E,
+                    7 => 0x23,
+                    8 => 0x28,
+                    9 => 0x2D,
+                    0xA => 0x32,
+                    0xB => 0x37,
+                    0xC => 0x3C,
+                    0xD => 0x41,
+                    0xE => 0x46,
+                    0xF => 0x4B,
+                    _ => 0x50
+                };
             }
             (0xF, x, 0x3, 0x3) => {
                 self.print_debug(format!("Store BCD representation of V{} in memory locations {:#06X?}, {:#06X?}, and {:#06X?}.", x, self.i, self.i + 1, self.i + 2));
@@ -300,13 +457,20 @@ impl CPU {
                 let start_address = self.i as usize;
 
                 self.memory[start_address] = hundreds;
-                self.memory[start_address] = tens;
-                self.memory[start_address] = ones;
+                self.memory[start_address + 1] = tens;
+                self.memory[start_address + 2] = ones;
+            }
+            (0xF, x, 0x5, 0x5) => {
+                self.print_debug(format!("Store registers V0 through V{} in memory starting at location {:#06X?}.", x, self.i));
+
+                for reg in 0..=x {
+                    self.memory[self.i as usize + reg] = self.v[reg];
+                }
             }
             (0xF, x, 0x6, 0x5) => {
                 self.print_debug(format!("Read registers V0 through V{} from memory starting at location {:#06X?}.", x, self.i));
 
-                for reg in 0..x {
+                for reg in 0..=x {
                     self.v[reg] = self.memory[(self.i as usize) + reg];
                 }
             }
