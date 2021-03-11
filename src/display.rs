@@ -1,4 +1,4 @@
-use minifb::{Window, WindowOptions, KeyRepeat, Key};
+use minifb::Window;
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::SCALE_FACTOR;
@@ -19,14 +19,6 @@ impl Display {
             width,
             buffer: vec![0; width * height],
         }
-    }
-
-    pub fn get_height(&self) -> usize {
-        self.height
-    }
-
-    pub fn get_width(&self) -> usize {
-        self.width
     }
 
     pub fn update_buffer(&mut self, buf: &[u32; 2048]) {

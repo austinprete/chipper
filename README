@@ -1,0 +1,17 @@
+### Overview
+`chipper` is a Rust implementation of the CHIP-8 virtual machine. It is feature complete in terms of the base opcodes,
+but doesn't attempt to provide any strict timing guarantees.
+
+### Running `chipper`
+
+Use `cargo run --release` to run it in release mode, which is recommended for improved 
+performance. As of writing this the loaded ROM is hard-coded in `main.rs` and defaults to `programs/PONG`.
+
+`chipper` has only been tested with the roms in the `programs` directory, but feel free to use it
+with CHIP-8 ROMs found elsewhere. The length of sleeps in the main CPU `run` loop might need to be adjusted on a per ROM 
+basis to give the expected performance.
+
+### Resources
+Here's a few resources that were incredibly helpful during development:
+- Cowgod's Chip-8 Technical Reference - http://devernay.free.fr/hacks/chip8/C8TECH10.HTM
+- Guide to making a CHIP-8 emulator by Tobias V. Langhoff - https://tobiasvl.github.io/blog/write-a-chip-8-emulator/

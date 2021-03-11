@@ -1,8 +1,8 @@
 use std::thread::sleep;
 use std::time;
-use std::time::Duration;
+// use std::time::Duration;
 
-use rand::{random, Rng};
+use rand::Rng;
 use rand::rngs::ThreadRng;
 
 use crate::display::Display;
@@ -10,7 +10,7 @@ use crate::keyboard::Keyboard;
 use crate::rom::ROM;
 use crate::{SCALE_FACTOR, WIDTH, HEIGHT};
 
-const BUFFER_SIZE: usize = (WIDTH / 10) * (HEIGHT / 10);
+const BUFFER_SIZE: usize = (WIDTH / SCALE_FACTOR) * (HEIGHT / SCALE_FACTOR);
 
 pub struct CPU {
     v: [u8; 16],
@@ -35,8 +35,6 @@ fn from_u8_rgb(r: u8, g: u8, b: u8) -> u32 {
 
 impl CPU {
     pub fn new(keyboard: Keyboard, display: Display) -> CPU {
-        let height = (display.get_height() / SCALE_FACTOR);
-        let width = (display.get_width() / SCALE_FACTOR);
         CPU {
             v: [0; 16],
             i: 0,
@@ -53,14 +51,14 @@ impl CPU {
             rng: rand::thread_rng(),
         }
     }
-    //
+
     pub fn load_rom(&mut self, rom: ROM) {
         self.memory[0x200..].clone_from_slice(&rom.data);
     }
 
-    pub fn enable_debug(&mut self) {
-        self.debug_mode = true;
-    }
+    // pub fn enable_debug(&mut self) {
+    //     self.debug_mode = true;
+    // }
 
     pub fn load_fontset(&mut self) {
         // 0
@@ -171,9 +169,8 @@ impl CPU {
             if self.pc >= 4096 {
                 break;
             }
-            // self.keyboard.get_input(self.display.window.clone());
             self.execute_op();
-            sleep(time::Duration::from_millis(1));
+            sleep(time::Duration::from_micros(500));
 
             if self.delay_timer > 0 {
                 self.delay_timer -= 1;
@@ -375,7 +372,7 @@ impl CPU {
 
                 let mut draw = false;
                 for i in 0usize..(n as usize) {
-                    let mut line_data = self.memory[self.i as usize + i];
+                    let line_data = self.memory[self.i as usize + i];
 
                     let mut mask = 0x80u8;
                     for j in 0..8 {
@@ -411,12 +408,11 @@ impl CPU {
             }
             (0xE, x, 0xA, 0x1) => {
                 self.print_debug(format!("Skips the next instruction if key {} isn't pressed.", self.v[x]));
-                self.keyboard.get_input(self.display.window.clone());
 
                 if !self.keyboard.is_key_pressed(self.v[x]) {
                     self.pc += 2
                 } else {
-                    println!("Key {} is pressed", self.v[x])
+                    self.print_debug(format!("Key {} is pressed", self.v[x]))
                 }
             }
             (0xF, x, 0x0, 0x7) => {

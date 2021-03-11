@@ -1,6 +1,4 @@
 use std::cell::RefCell;
-use std::io;
-use std::io::prelude::*;
 use std::rc::Rc;
 
 use minifb::{Window, WindowOptions};
@@ -25,7 +23,9 @@ fn main() {
         .unwrap_or_else(|e| {
             panic!("{}", e);
         });
-    window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
+    // window.limit_update_rate(Some(std::time::Duration::from_micros(100)));
+    window.set_key_repeat_delay(0.01);
+    window.set_key_repeat_rate(0.01);
 
     let window_ref = Rc::new(RefCell::new(window));
     let display = Display::new(window_ref.clone());
@@ -35,13 +35,6 @@ fn main() {
     let rom = ROM::new("programs/PONG");
 
     cpu.load_rom(rom);
-
-    // for i in 256..256 + (rom.size / 2) {
-    //     println!("{:?}", i);
-    //     // let opcode = ((cpu.memory[i * 2] as u16) << 8) | cpu.memory[(i * 2) + 1] as u16;
-    //     // println!("{:#06x?}", opcode);
-    //     // cpu.execute_op(opcode);
-    // }
 
     // cpu.enable_debug();
     cpu.run();
