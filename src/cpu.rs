@@ -162,7 +162,7 @@ impl CPU {
     }
 
     pub fn run(&mut self) {
-        const CYCLES_TO_RUN: u16 = 10_000;
+        const CYCLES_TO_RUN: usize = 1_000_000;
         let mut cycles_ran = 0;
 
         self.load_fontset();
@@ -173,7 +173,7 @@ impl CPU {
             }
             // self.keyboard.get_input(self.display.window.clone());
             self.execute_op();
-            // sleep(time::Duration::from_millis(5));
+            sleep(time::Duration::from_millis(1));
 
             if self.delay_timer > 0 {
                 self.delay_timer -= 1;
@@ -448,7 +448,7 @@ impl CPU {
             (0xF, x, 0x2, 0x9) => {
                 self.print_debug(format!("Set I = location of sprite for digit V{}.", x));
 
-                self.i = (x as u16) * 0x5;
+                self.i = (self.v[x] as u16) * 0x5;
             }
             (0xF, x, 0x3, 0x3) => {
                 self.print_debug(format!("Store BCD representation of V{} in memory locations {:#06X?}, {:#06X?}, and {:#06X?}.", x, self.i, self.i + 1, self.i + 2));
