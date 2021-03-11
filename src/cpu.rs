@@ -8,7 +8,9 @@ use rand::rngs::ThreadRng;
 use crate::display::Display;
 use crate::keyboard::Keyboard;
 use crate::rom::ROM;
-use crate::SCALE_FACTOR;
+use crate::{SCALE_FACTOR, WIDTH, HEIGHT};
+
+const BUFFER_SIZE: usize = (WIDTH / 10) * (HEIGHT / 10);
 
 pub struct CPU {
     v: [u8; 16],
@@ -23,7 +25,7 @@ pub struct CPU {
     keyboard: Keyboard,
     display: Display,
     rng: ThreadRng,
-    output_buffer: Vec<u32>,
+    output_buffer: [u32; BUFFER_SIZE],
 }
 
 fn from_u8_rgb(r: u8, g: u8, b: u8) -> u32 {
@@ -47,14 +49,13 @@ impl CPU {
             debug_mode: false,
             keyboard,
             display,
-            output_buffer: vec![0; width * height],
+            output_buffer: [0; BUFFER_SIZE],
             rng: rand::thread_rng(),
         }
     }
     //
     pub fn load_rom(&mut self, rom: ROM) {
         self.memory[0x200..].clone_from_slice(&rom.data);
-        println!("{:?}", self.memory[0x200])
     }
 
     pub fn enable_debug(&mut self) {
@@ -170,16 +171,16 @@ impl CPU {
             if self.pc >= 4096 {
                 break;
             }
-            self.keyboard.get_input(self.display.window.clone());
+            // self.keyboard.get_input(self.display.window.clone());
             self.execute_op();
-            sleep(time::Duration::from_millis(16));
+            // sleep(time::Duration::from_millis(5));
 
             if self.delay_timer > 0 {
                 self.delay_timer -= 1;
             }
 
             cycles_ran += 1;
-            println!("{0}", cycles_ran);
+            self.print_debug(format!("{0}", cycles_ran));
 
             if cycles_ran == CYCLES_TO_RUN {
                 break;
@@ -303,7 +304,7 @@ impl CPU {
                     0
                 };
 
-                self.v[x] = (new_val & 0x0F) as u8;
+                self.v[x] = (new_val & 0xFF) as u8;
             }
             (0x8, x, y, 0x5) => {
                 self.print_debug(format!("Subtract the value of register V{} from register V{}\n\tSet VF to 00 if a borrow occurs\n\tSet VF to 01 if a borrow does not occur", y, x));
@@ -311,6 +312,7 @@ impl CPU {
                 self.v[0xF] = if self.v[x] > self.v[y as usize] {
                     1
                 } else {
+                    // No borrow occurred
                     0
                 };
 
@@ -328,6 +330,7 @@ impl CPU {
                 self.v[0xF] = if self.v[y as usize] > self.v[x] {
                     1
                 } else {
+                    // No borrow occurred
                     0
                 };
 
@@ -363,22 +366,28 @@ impl CPU {
                 self.v[x] = rnd & nn;
             }
             (0xD, x, y, n) => {
-                let y_coord = self.v[y as usize];
+                let y_coord = self.v[y as usize] as usize;
                 let x_coord = self.v[x] as usize;
                 self.print_debug(format!("Draw sprite {:?} at x={} y={}", n, x_coord, y_coord));
 
                 let start_pos = (64 * y_coord) + x_coord;
                 let mut unset = false;
 
+                let mut draw = false;
                 for i in 0usize..(n as usize) {
                     let mut line_data = self.memory[self.i as usize + i];
 
+                    let mut mask = 0x80u8;
                     for j in 0..8 {
-                        let pixel_on = 0x8 == (0x8 & line_data);
-                        line_data = line_data << 1;
+                        let pixel_on = (line_data & mask) > 0;
+                        mask >>= 1;
 
                         let current_pos = start_pos + (64 * i) + j;
+                        if current_pos > self.output_buffer.len() - 1 {
+                            continue;
+                        }
                         if pixel_on {
+                            draw = true;
                             if self.output_buffer[current_pos] == 0 {
                                 // self.output_buffer[current_pos] = from_u8_rgb(self.rng.gen::<u8>(), self.rng.gen::<u8>(), self.rng.gen::<u8>());
                                 self.output_buffer[current_pos] = from_u8_rgb(200, 200, 100);
@@ -396,10 +405,13 @@ impl CPU {
                     0
                 };
 
-                self.display.update_buffer(&self.output_buffer);
+                if draw {
+                    self.display.update_buffer(&self.output_buffer);
+                }
             }
             (0xE, x, 0xA, 0x1) => {
                 self.print_debug(format!("Skips the next instruction if key {} isn't pressed.", self.v[x]));
+                self.keyboard.get_input(self.display.window.clone());
 
                 if !self.keyboard.is_key_pressed(self.v[x]) {
                     self.pc += 2
@@ -422,28 +434,21 @@ impl CPU {
 
                 self.sound_timer = self.v[x];
             }
+            (0xF, x, 0x1, 0xE) => {
+                self.print_debug(format!("Set I = I + V{}", x));
+
+                self.i += self.v[x] as u16;
+
+                self.v[0xF] = if self.i > 256 {
+                    1
+                } else {
+                    0
+                };
+            }
             (0xF, x, 0x2, 0x9) => {
                 self.print_debug(format!("Set I = location of sprite for digit V{}.", x));
 
-                self.i = match self.v[x] {
-                    0 => 0x00,
-                    1 => 0x05,
-                    2 => 0x0A,
-                    3 => 0x0F,
-                    4 => 0x14,
-                    5 => 0x19,
-                    6 => 0x1E,
-                    7 => 0x23,
-                    8 => 0x28,
-                    9 => 0x2D,
-                    0xA => 0x32,
-                    0xB => 0x37,
-                    0xC => 0x3C,
-                    0xD => 0x41,
-                    0xE => 0x46,
-                    0xF => 0x4B,
-                    _ => 0x50
-                };
+                self.i = (x as u16) * 0x5;
             }
             (0xF, x, 0x3, 0x3) => {
                 self.print_debug(format!("Store BCD representation of V{} in memory locations {:#06X?}, {:#06X?}, and {:#06X?}.", x, self.i, self.i + 1, self.i + 2));
@@ -466,6 +471,8 @@ impl CPU {
                 for reg in 0..=x {
                     self.memory[self.i as usize + reg] = self.v[reg];
                 }
+
+                self.i += x as u16 + 1;
             }
             (0xF, x, 0x6, 0x5) => {
                 self.print_debug(format!("Read registers V0 through V{} from memory starting at location {:#06X?}.", x, self.i));
@@ -473,6 +480,8 @@ impl CPU {
                 for reg in 0..=x {
                     self.v[reg] = self.memory[(self.i as usize) + reg];
                 }
+
+                self.i += x as u16 + 1;
             }
             (_, _, _, _) => panic!("UNRECOGNIZED OP: {:#06X?}", opcode)
         }

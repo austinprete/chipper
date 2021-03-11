@@ -15,8 +15,8 @@ mod rom;
 mod keyboard;
 mod display;
 
-const WIDTH: usize = 640;
-const HEIGHT: usize = 320;
+const WIDTH: usize = 64 * SCALE_FACTOR;
+const HEIGHT: usize = 32 * SCALE_FACTOR;
 const SCALE_FACTOR: usize = 10;
 
 
@@ -43,6 +43,6 @@ fn main() {
     //     // cpu.execute_op(opcode);
     // }
 
-    cpu.enable_debug();
+    // cpu.enable_debug();
     cpu.run();
 }

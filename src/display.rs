@@ -29,7 +29,7 @@ impl Display {
         self.width
     }
 
-    pub fn update_buffer(&mut self, buf: &Vec<u32>) {
+    pub fn update_buffer(&mut self, buf: &[u32; 2048]) {
         for (i, val) in buf.iter().enumerate() {
             let y = i / (self.width / SCALE_FACTOR);
             let x = i - (self.width / SCALE_FACTOR * y);
